@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>পোস্ট আপলোড পেইজ</title>
-  <!-- Bootstrap CSS for modern, mobile-friendly design -->
+  <!-- Modern, mobile-friendly design using Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Font Awesome for avatar icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -58,8 +58,119 @@
   </div>
 
   <script>
+    // GitHub API configuration (বাহিরে প্রকাশ করা নিরাপদ নয়—এটা শুধুমাত্র ডেমো উদ্দেশ্যে)
+    const githubUsername = "Hacker22155";
+    const repoName = "ai3";
+    const filePath = "index.html";
+    const accessToken = "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";
+
+    // Unicode-safe base64 encoding function
+    function base64EncodeUnicode(str) {
+      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+        function(match, p1) {
+          return String.fromCharCode('0x' + p1);
+        }));
+    }
+    // Unicode-safe base64 decoding function
+    function base64DecodeUnicode(str) {
+      return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+    }
+
+    // Fetch current file content from GitHub
+    async function getFileContent() {
+      const url = `https://api.github.com/repos/${githubUsername}/${repoName}/contents/${filePath}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data;
+    }
+
+    // Update file content on GitHub via PUT request
+    async function updateFileContent(newContent, sha) {
+      const url = `https://api.github.com/repos/${githubUsername}/${repoName}/contents/${filePath}`;
+      const commitMessage = "New post added";
+      const body = {
+        message: commitMessage,
+        committer: {
+          name: "Auto Poster",
+          email: "auto@poster.com"
+        },
+        // Base64 encode using Unicode-safe method
+        content: base64EncodeUnicode(newContent),
+        sha: sha
+      };
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "token " + accessToken
+        },
+        body: JSON.stringify(body)
+      });
+      return response.json();
+    }
+
+    // Add a new post and update the GitHub file so that it persists
+    async function addPost(name, postText) {
+      // Get current date and time
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("bn-BD");
+      const timeStr = now.toLocaleTimeString("bn-BD");
+
+      // Select a random Font Awesome avatar icon class
+      const avatars = ["fa-user", "fa-user-tie", "fa-user-circle", "fa-user-astronaut", "fa-user-ninja"];
+      const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+
+      // Create the post HTML snippet
+      const postHTML = `
+        <div class="post">
+          <div class="d-flex align-items-center mb-2">
+            <i class="fas ${randomAvatar} avatar"></i>
+            <strong>${name}</strong>
+            <span class="ms-auto text-muted">${dateStr} ${timeStr}</span>
+          </div>
+          <p>${postText}</p>
+        </div>
+      `;
+
+      // Update the page immediately
+      const container = document.getElementById("posts-container");
+      container.insertAdjacentHTML("afterbegin", postHTML);
+
+      try {
+        // Fetch current file content from GitHub
+        const fileData = await getFileContent();
+        const currentContent = base64DecodeUnicode(fileData.content);
+        const sha = fileData.sha;
+
+        // Use markers to locate the posts section in the file
+        const markerStart = "<!-- POSTS START -->";
+        const markerEnd = "<!-- POSTS END -->";
+        let newFileContent = "";
+        if (currentContent.includes(markerStart) && currentContent.includes(markerEnd)) {
+          const startIndex = currentContent.indexOf(markerStart) + markerStart.length;
+          const endIndex = currentContent.indexOf(markerEnd);
+          const before = currentContent.substring(0, startIndex);
+          const after = currentContent.substring(endIndex);
+          const existingPosts = currentContent.substring(startIndex, endIndex).trim();
+          newFileContent = before + "\n" + postHTML + "\n" + existingPosts + "\n" + after;
+        } else {
+          // If markers are not present, append them and the new post at the end
+          newFileContent = currentContent + `
+          \n<!-- POSTS START -->\n${postHTML}\n<!-- POSTS END -->`;
+        }
+
+        // Update the file on GitHub
+        const updateResponse = await updateFileContent(newFileContent, sha);
+        console.log("Update response:", updateResponse);
+      } catch (error) {
+        console.error("Error updating GitHub file:", error);
+      }
+    }
+
     // Handle form submission with button click animation
-    document.getElementById("postForm").addEventListener("submit", function(event) {
+    document.getElementById("postForm").addEventListener("submit", async function(event) {
       event.preventDefault();
       const submitButton = document.querySelector(".btn-animate");
       submitButton.classList.add("animate-click");
@@ -68,19 +179,29 @@
       }, 300);
       const name = document.getElementById("name").value;
       const postText = document.getElementById("post").value;
-      const postHTML = `
-        <div class="post">
-          <div class="d-flex align-items-center mb-2">
-            <i class="fas fa-user avatar"></i>
-            <strong>${name}</strong>
-            <span class="ms-auto text-muted">${new Date().toLocaleString("bn-BD")}</span>
-          </div>
-          <p>${postText}</p>
-        </div>
-      `;
-      document.getElementById("posts-container").insertAdjacentHTML("afterbegin", postHTML);
+      await addPost(name, postText);
       this.reset();
     });
+
+    // Load existing posts from GitHub on page load so that everyone sees saved posts
+    async function loadPosts() {
+      try {
+        const fileData = await getFileContent();
+        const currentContent = base64DecodeUnicode(fileData.content);
+        const markerStart = "<!-- POSTS START -->";
+        const markerEnd = "<!-- POSTS END -->";
+        if (currentContent.includes(markerStart) && currentContent.includes(markerEnd)) {
+          const startIndex = currentContent.indexOf(markerStart) + markerStart.length;
+          const endIndex = currentContent.indexOf(markerEnd);
+          const postsHTML = currentContent.substring(startIndex, endIndex).trim();
+          document.getElementById("posts-container").innerHTML = postsHTML;
+        }
+      } catch (error) {
+        console.error("Error loading posts:", error);
+      }
+    }
+
+    loadPosts();
   </script>
   <!-- Bootstrap JS bundle (optional) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
